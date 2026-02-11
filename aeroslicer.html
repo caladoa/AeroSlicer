@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroSlice - 2D CFD Simulation</title>
+    <meta name="description" content="Interactive 2D computational fluid dynamics simulation in your browser. Visualize airflow around airfoils, cylinders, and custom shapes in real time.">
+    <meta property="og:title" content="AeroSlice">
+    <meta property="og:description" content="Interactive 2D CFD simulation — visualize airflow around bodies in real time, right in your browser.">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M5 50 Q5 38 25 35 Q50 30 90 48 L90 52 Q50 55 25 52 Q5 50 5 50Z' fill='%234CAF50'/><path d='M70 42 L85 30 M75 46 L90 36 M80 50 L95 42' stroke='%234CAF50' stroke-width='2' fill='none' opacity='0.6'/></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Loading overlay */
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.3s ease;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid #333;
+            border-top-color: #4CAF50;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #loading-overlay p {
+            color: #888;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #control-panel {
+            width: 320px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+        }
+
+        #panel-toggle {
+            display: none;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #444;
+        }
+
+        .control-group:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #444;
+            outline: none;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #4CAF50;
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+
+        .value-display {
+            display: inline-block;
+            float: right;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #444;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            background: #444;
+            border: 2px solid #555;
+            color: #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: #4CAF50;
+            border-color: #4CAF50;
+            color: #fff;
+        }
+
+        .output-display {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .output-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .output-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .output-label {
+            color: #888;
+        }
+
+        .output-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        #colorbar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 200px;
+            height: 30px;
+            border: 2px solid #fff;
+            border-radius: 4px;
+        }
+
+        .colorbar-label {
+            position: absolute;
+            bottom: 55px;
+            font-size: 12px;
+            color: #fff;
+        }
+
+        #colorbar-min {
+            left: 20px;
+        }
+
+        #colorbar-max {
+            left: 170px;
+        }
+
+        /* Upload overlay */
+        #uploadOverlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #uploadOverlay.visible {
+            display: flex;
+        }
+
+        #uploadCanvas {
+            max-width: 90%;
+            max-height: 70%;
+            border: 2px solid #4CAF50;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        #uploadModeBar {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        #uploadModeBar .toggle-btn {
+            min-width: 70px;
+        }
+
+        #uploadControls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+            padding: 12px 20px;
+            background: #2a2a2a;
+            border-radius: 6px;
+        }
+
+        #uploadControls input[type="range"] {
+            width: 120px;
+        }
+
+        #uploadControls .toggle-btn {
+            min-width: 80px;
+        }
+
+        #uploadInstruction {
+            position: absolute;
+            top: 15px;
+            color: #4CAF50;
+            font: bold 14px monospace;
+            text-shadow: 0 0 3px #000;
+            pointer-events: none;
+        }
+
+        #thresholdLabel {
+            color: #ccc;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        #thresholdLabel .value-display {
+            margin-left: 4px;
+        }
+
+        /* Responsive: mobile / narrow screens */
+        @media (max-width: 768px) {
+            #container {
+                flex-direction: column;
+            }
+
+            #canvas-container {
+                flex: none;
+                height: 55vh;
+                min-height: 200px;
+            }
+
+            #control-panel {
+                width: 100%;
+                height: 45vh;
+                padding: 0;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+                display: flex;
+                flex-direction: column;
+            }
+
+            #panel-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 16px;
+                background: #333;
+                border: none;
+                color: #ccc;
+                font-size: 14px;
+                cursor: pointer;
+                flex-shrink: 0;
+                border-bottom: 1px solid #444;
+            }
+
+            #panel-toggle .toggle-icon {
+                font-size: 18px;
+                transition: transform 0.2s;
+            }
+
+            #control-panel.collapsed {
+                height: auto;
+            }
+
+            #control-panel.collapsed .panel-content {
+                display: none;
+            }
+
+            #control-panel.collapsed #panel-toggle .toggle-icon {
+                transform: rotate(180deg);
+            }
+
+            .panel-content {
+                padding: 16px;
+                overflow-y: auto;
+                flex: 1;
+            }
+
+            .control-group {
+                margin-bottom: 16px;
+                padding-bottom: 14px;
+            }
+
+            #colorbar {
+                bottom: 10px;
+                left: 10px;
+                width: 150px;
+                height: 22px;
+            }
+
+            .colorbar-label {
+                bottom: 38px;
+                font-size: 10px;
+            }
+
+            #colorbar-max {
+                left: 125px;
+            }
+
+            #colorbar-min {
+                left: 10px;
+            }
+
+            #uploadControls {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Initializing simulation...</p>
+    </div>
+
+    <div id="container">
+        <div id="canvas-container">
+            <canvas id="renderCanvas"></canvas>
+            <canvas id="colorbar"></canvas>
+            <span id="colorbar-min" class="colorbar-label">Low</span>
+            <span id="colorbar-max" class="colorbar-label">High</span>
+
+            <div id="uploadOverlay">
+                <div id="uploadInstruction">Draw a rectangle around the shape</div>
+                <canvas id="uploadCanvas"></canvas>
+                <div id="uploadModeBar">
+                    <button id="modeBox" class="toggle-btn active">Box</button>
+                    <button id="modeLasso" class="toggle-btn">Lasso</button>
+                </div>
+                <div id="uploadControls">
+                    <span id="thresholdLabel">Threshold: <span id="thresholdValue" class="value-display">128</span></span>
+                    <input type="range" id="thresholdSlider" min="10" max="245" value="128">
+                    <button id="uploadAccept" class="toggle-btn">Accept</button>
+                    <button id="uploadCancel" class="toggle-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="control-panel">
+            <button id="panel-toggle">
+                <span>Controls</span>
+                <span class="toggle-icon">&#9650;</span>
+            </button>
+            <div class="panel-content">
+                <div class="control-group">
+                    <h2>Body Shape</h2>
+                    <select id="bodyShape">
+                        <option value="circle">Circle</option>
+                        <option value="square">Square</option>
+                        <option value="naca0012">NACA 0012</option>
+                        <option value="custom" disabled id="customBodyOption">Custom Upload</option>
+                    </select>
+                    <button id="uploadBodyBtn" class="toggle-btn" style="margin-top:10px;width:100%">Upload Custom Shape</button>
+                    <input type="file" id="bodyFileInput" accept="image/png,image/jpeg" style="display:none">
+                    <div class="toggle-group" style="margin-top:10px">
+                        <button id="flipHBtn" class="toggle-btn">Flip Horizontal</button>
+                        <button id="flipVBtn" class="toggle-btn">Flip Vertical</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h2>Angle of Attack</h2>
+                    <label>
+                        AoA: <span id="angle-value" class="value-display">0°</span>
+                    </label>
+                    <input type="range" id="angle" min="0" max="360" step="1" value="0">
+                    <label style="margin-top:12px;display:flex;align-items:center;gap:8px;cursor:pointer">
+                        <input type="checkbox" id="addGround"> Add Ground
+                    </label>
+                </div>
+
+                <div class="control-group">
+                    <h2>Visualization</h2>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" data-viz="velocity">Velocity</button>
+                        <button class="toggle-btn" data-viz="pressure">Pressure</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h2>Force Coefficients</h2>
+                    <div class="output-display">
+                        <div class="output-row">
+                            <span class="output-label">CD (inst / avg):</span>
+                            <span class="output-value"><span id="drag-inst">0.000</span> / <span id="drag-avg">0.000</span></span>
+                        </div>
+                        <div class="output-row">
+                            <span class="output-label">CL (inst / avg):</span>
+                            <span class="output-value"><span id="lift-inst">0.000</span> / <span id="lift-avg">0.000</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="aeroslicer.js"></script>
+</body>
+</html>
