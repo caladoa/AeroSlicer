@@ -189,6 +189,9 @@ class AeroSlicer {
             setTimeout(() => loader.remove(), 300);
         }
 
+        // Deferred resize to catch mobile layout settling after loading overlay removal
+        setTimeout(() => this.resizeCanvas(), 50);
+
         // Start simulation
         this.running = true;
         this.lastTime = performance.now();
@@ -1408,11 +1411,13 @@ class AeroSlicer {
 
     resizeCanvas() {
         const container = document.getElementById('canvas-container');
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = container.clientHeight;
+        const w = container.clientWidth || window.innerWidth;
+        const h = container.clientHeight || window.innerHeight;
+        this.canvas.width = w;
+        this.canvas.height = h;
 
         // Adjust view window to match canvas aspect ratio (keeps body centered)
-        const aspect = this.canvas.width / this.canvas.height;
+        const aspect = w / Math.max(h, 1);
         const halfH = this._viewHalfH;
         const halfW = halfH * aspect;
         this.viewXMin = this._viewCenterX - halfW;
