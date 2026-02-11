@@ -1417,13 +1417,25 @@ class AeroSlicer {
         this.canvas.height = h;
 
         // Adjust view window to match canvas aspect ratio (keeps body centered)
+        // Always fit the full base height; width scales with aspect ratio
         const aspect = w / Math.max(h, 1);
-        const halfH = this._viewHalfH;
-        const halfW = halfH * aspect;
-        this.viewXMin = this._viewCenterX - halfW;
-        this.viewXMax = this._viewCenterX + halfW;
-        this.viewYMin = this._viewCenterY - halfH;
-        this.viewYMax = this._viewCenterY + halfH;
+        if (aspect >= 1.0) {
+            // Landscape / desktop: fixed height, expand width
+            const halfH = this._viewHalfH;
+            const halfW = halfH * aspect;
+            this.viewYMin = this._viewCenterY - halfH;
+            this.viewYMax = this._viewCenterY + halfH;
+            this.viewXMin = this._viewCenterX - halfW;
+            this.viewXMax = this._viewCenterX + halfW;
+        } else {
+            // Portrait / phone: fixed width, expand height
+            const halfW = this._viewHalfH; // use same base dimension for width
+            const halfH = halfW / aspect;
+            this.viewXMin = this._viewCenterX - halfW;
+            this.viewXMax = this._viewCenterX + halfW;
+            this.viewYMin = this._viewCenterY - halfH;
+            this.viewYMax = this._viewCenterY + halfH;
+        }
 
         if (this.useWebGL && this.gl) {
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
