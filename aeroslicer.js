@@ -119,7 +119,10 @@ class AeroSlicer {
         this.yMin = -10.0;
         this.yMax = 10.0;
 
-        // View window
+        // View window (base values, adjusted for aspect ratio in resizeCanvas)
+        this._viewCenterX = 4.0;   // Focus center x (body is near origin)
+        this._viewCenterY = 0.0;   // Focus center y
+        this._viewHalfH = 3.0;     // Base half-height of view
         this.viewXMin = -2.0;
         this.viewXMax = 10.0;
         this.viewYMin = -3.0;
@@ -1407,6 +1410,15 @@ class AeroSlicer {
         const container = document.getElementById('canvas-container');
         this.canvas.width = container.clientWidth;
         this.canvas.height = container.clientHeight;
+
+        // Adjust view window to match canvas aspect ratio (keeps body centered)
+        const aspect = this.canvas.width / this.canvas.height;
+        const halfH = this._viewHalfH;
+        const halfW = halfH * aspect;
+        this.viewXMin = this._viewCenterX - halfW;
+        this.viewXMax = this._viewCenterX + halfW;
+        this.viewYMin = this._viewCenterY - halfH;
+        this.viewYMax = this._viewCenterY + halfH;
 
         if (this.useWebGL && this.gl) {
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
