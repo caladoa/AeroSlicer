@@ -1417,25 +1417,27 @@ class AeroSlicer {
         this.canvas.height = h;
 
         // Adjust view window to match canvas aspect ratio (keeps body centered)
-        // Always fit the full base height; width scales with aspect ratio
+        // Strategy: fix the shorter screen axis to baseHalf, expand the longer one
         const aspect = w / Math.max(h, 1);
+        const baseHalf = this._viewHalfH;
+        let halfW, halfH;
         if (aspect >= 1.0) {
-            // Landscape / desktop: fixed height, expand width
-            const halfH = this._viewHalfH;
-            const halfW = halfH * aspect;
-            this.viewYMin = this._viewCenterY - halfH;
-            this.viewYMax = this._viewCenterY + halfH;
-            this.viewXMin = this._viewCenterX - halfW;
-            this.viewXMax = this._viewCenterX + halfW;
+            // Landscape: height is shorter axis
+            halfH = baseHalf;
+            halfW = baseHalf * aspect;
+            // Clamp so we don't zoom out too far horizontally
+            if (halfW > 8.0) halfW = 8.0;
         } else {
-            // Portrait / phone: fixed width, expand height
-            const halfW = this._viewHalfH; // use same base dimension for width
-            const halfH = halfW / aspect;
-            this.viewXMin = this._viewCenterX - halfW;
-            this.viewXMax = this._viewCenterX + halfW;
-            this.viewYMin = this._viewCenterY - halfH;
-            this.viewYMax = this._viewCenterY + halfH;
+            // Portrait: width is shorter axis
+            halfW = baseHalf;
+            halfH = baseHalf / aspect;
+            // Clamp so we don't zoom out too far vertically
+            if (halfH > 8.0) halfH = 8.0;
         }
+        this.viewXMin = this._viewCenterX - halfW;
+        this.viewXMax = this._viewCenterX + halfW;
+        this.viewYMin = this._viewCenterY - halfH;
+        this.viewYMax = this._viewCenterY + halfH;
 
         if (this.useWebGL && this.gl) {
             this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -2578,12 +2580,22 @@ class AeroSlicer {
             document.body.appendChild(this._dbgDiv);
         }
         if (this.frameCount % 30 === 0) {
+            // Count solid cells in mask
+            let solidCount = 0;
+            const m = this.mask;
+            for (let k = 0; k < m.length; k++) {
+                if (m[k] < 0.5) solidCount++;
+            }
             this._dbgDiv.textContent =
                 'canvas: ' + this.canvas.width + 'x' + this.canvas.height +
                 '\nview X: [' + this.viewXMin.toFixed(2) + ', ' + this.viewXMax.toFixed(2) + ']' +
                 '\nview Y: [' + this.viewYMin.toFixed(2) + ', ' + this.viewYMax.toFixed(2) + ']' +
                 '\nWebGL: ' + this.useWebGL +
-                '\nground: ' + this.addGround;
+                '\nfloatLinear: ' + this.hasFloatLinear +
+                '\ngrid: ' + this.Nx + 'x' + this.Ny +
+                '\nsolid cells: ' + solidCount + '/' + m.length +
+                '\nground: ' + this.addGround +
+                '\nbody: ' + this.bodyType;
         }
 
         requestAnimationFrame(this._boundAnimate);
