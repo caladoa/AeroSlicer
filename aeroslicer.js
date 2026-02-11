@@ -120,9 +120,9 @@ class AeroSlicer {
         this.yMax = 10.0;
 
         // View window (base values, adjusted for aspect ratio in resizeCanvas)
-        this._viewCenterX = 4.0;   // Focus center x (body is near origin)
+        this._viewCenterX = 2.5;   // Focus center x (body at origin, show some wake)
         this._viewCenterY = 0.0;   // Focus center y
-        this._viewHalfH = 3.0;     // Base half-height of view
+        this._viewHalfH = 3.5;     // Base half-height of view
         this.viewXMin = -2.0;
         this.viewXMax = 10.0;
         this.viewYMin = -3.0;
@@ -1544,6 +1544,8 @@ class AeroSlicer {
 
         // Set per-frame uniforms (program is already bound from init)
         gl.uniform2f(this.glUniforms.resolution, this.canvas.width, this.canvas.height);
+        gl.uniform2f(this.glUniforms.viewMin, this.viewXMin, this.viewYMin);
+        gl.uniform2f(this.glUniforms.viewMax, this.viewXMax, this.viewYMax);
         gl.uniform1f(this.glUniforms.fieldMin, minVal);
         gl.uniform1f(this.glUniforms.fieldMax, maxVal);
         gl.uniform1i(this.glUniforms.vizMode, vizModeInt);
