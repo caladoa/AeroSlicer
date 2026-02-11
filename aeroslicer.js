@@ -65,8 +65,33 @@ void main() {
 
     // World to texture UV via inverse coordinate maps (non-uniform grid)
     vec2 worldNorm = (world - u_domainMin) / (u_domainMax - u_domainMin);
+#ifdef HAS_FLOAT_LINEAR
     float gridU = texture(u_texInvMapX, vec2(worldNorm.x, 0.5)).r;
     float gridV = texture(u_texInvMapY, vec2(worldNorm.y, 0.5)).r;
+#else
+    // Manual linear interpolation for 1024x1 inverse map (NEAREST filter)
+    float invMapSize = 1024.0;
+    float ixF = worldNorm.x * invMapSize - 0.5;
+    float ixBase = floor(ixF);
+    float ixFrac = ixF - ixBase;
+    float ix0 = (ixBase + 0.5) / invMapSize;
+    float ix1 = (ixBase + 1.5) / invMapSize;
+    float gridU = mix(
+        texture(u_texInvMapX, vec2(ix0, 0.5)).r,
+        texture(u_texInvMapX, vec2(ix1, 0.5)).r,
+        ixFrac
+    );
+    float iyF = worldNorm.y * invMapSize - 0.5;
+    float iyBase = floor(iyF);
+    float iyFrac = iyF - iyBase;
+    float iy0 = (iyBase + 0.5) / invMapSize;
+    float iy1 = (iyBase + 1.5) / invMapSize;
+    float gridV = mix(
+        texture(u_texInvMapY, vec2(iy0, 0.5)).r,
+        texture(u_texInvMapY, vec2(iy1, 0.5)).r,
+        iyFrac
+    );
+#endif
     vec2 texUV = vec2(gridU, gridV);
 
     // Outside domain check
@@ -1282,9 +1307,11 @@ class AeroSlicer {
         // Create viridis 1D texture (RGBA8, 256×1)
         this.glTexViridis = this._createViridisTexture(gl);
 
-        // Create inverse-map textures for stretched grid (1024×1, R32F, LINEAR)
-        this.glTexInvMapX = this._createR32FTexture(gl, 1024, 1, gl.LINEAR);
-        this.glTexInvMapY = this._createR32FTexture(gl, 1024, 1, gl.LINEAR);
+        // Create inverse-map textures for stretched grid (1024×1, R32F)
+        // Must use NEAREST when OES_texture_float_linear is unavailable (e.g. iOS Safari)
+        const invMapFilter = this.hasFloatLinear ? gl.LINEAR : gl.NEAREST;
+        this.glTexInvMapX = this._createR32FTexture(gl, 1024, 1, invMapFilter);
+        this.glTexInvMapY = this._createR32FTexture(gl, 1024, 1, invMapFilter);
         this._uploadInverseMapTextures();
 
         // Upload initial mask
