@@ -2571,6 +2571,21 @@ class AeroSlicer {
         this.render();
         this.frameCount++;
 
+        // Temporary debug overlay
+        if (!this._dbgDiv) {
+            this._dbgDiv = document.createElement('div');
+            this._dbgDiv.style.cssText = 'position:fixed;top:10px;left:10px;color:#0f0;font:bold 12px monospace;z-index:999;background:rgba(0,0,0,0.8);padding:8px;border-radius:4px;pointer-events:none;white-space:pre';
+            document.body.appendChild(this._dbgDiv);
+        }
+        if (this.frameCount % 30 === 0) {
+            this._dbgDiv.textContent =
+                'canvas: ' + this.canvas.width + 'x' + this.canvas.height +
+                '\nview X: [' + this.viewXMin.toFixed(2) + ', ' + this.viewXMax.toFixed(2) + ']' +
+                '\nview Y: [' + this.viewYMin.toFixed(2) + ', ' + this.viewYMax.toFixed(2) + ']' +
+                '\nWebGL: ' + this.useWebGL +
+                '\nground: ' + this.addGround;
+        }
+
         requestAnimationFrame(this._boundAnimate);
     }
 }
