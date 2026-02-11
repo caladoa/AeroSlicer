@@ -1546,18 +1546,24 @@ class AeroSlicer {
             vizModeInt = 1;
         }
 
-        // Upload only the textures needed for current viz mode
-        // u, v always needed for velocity; p needed for pressure
+        // Upload textures — explicit bind before each upload (required on iOS Safari)
         gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.glTexU);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Nx, Ny, gl.RED, gl.FLOAT, this.u);
 
         gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.glTexV);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Nx, Ny, gl.RED, gl.FLOAT, this.v);
 
         if (vizModeInt === 1) {
             gl.activeTexture(gl.TEXTURE2);
+            gl.bindTexture(gl.TEXTURE_2D, this.glTexP);
             gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Nx, Ny, gl.RED, gl.FLOAT, this.p);
         }
+
+        // Re-bind mask texture (may have been re-uploaded by generateBody)
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, this.glTexMask);
 
         // Static textures (3-6) are bound once in _initWebGL, no re-bind needed
 
